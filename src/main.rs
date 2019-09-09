@@ -1,6 +1,6 @@
 #[macro_use] extern crate unwrap;
 
-use regex::Regex;
+use regex::{Captures, Regex};
 use std::fs;
 use std::io::{self, BufRead};
 use std::process::{Command, Stdio};
@@ -20,35 +20,41 @@ struct Opt {
     addr2line: Option<String>
 }
 
+fn android_ (opt: &Opt, line: &str, caps: Captures) {
+    let addr2line = opt.addr2line.as_ref().map (|s| &s[..]) .unwrap_or ("addr2line");
+
+    println!();
+    println! ("{}", line);
+    let num = unwrap! (caps.get (1)) .as_str();
+    let addr = unwrap! (caps.get (2)) .as_str();
+    println! ("num {} addr {}", num, addr);
+
+    let mut cmd = Command::new (addr2line);
+    cmd.arg (format! ("--exe={}", opt.exe));
+    cmd.arg ("--functions");
+    cmd.arg ("--demangle");
+    cmd.arg (addr);
+    cmd.stdout (Stdio::inherit());
+    cmd.stderr (Stdio::inherit());
+    let status = unwrap! (cmd.status());
+    if !status.success() {println! ("{:?}", status)}
+}
+
 fn main() {
     let opt = Opt::from_args();
-    let addr2line = opt.addr2line.unwrap_or ("addr2line".into());
 
     let log_file = unwrap! (fs::File::open (&opt.log), "Can't open the log {:?}", opt.log);
     let log_file = io::BufReader::new (log_file);
 
     // Currently only Android stack traces. Might support other formats in the future.
     // 08-06 05:24:35.985 21317 21317 F DEBUG   :     #00 pc 00123456  /data/data/package/app-folder/binary
-    let re = unwrap! (Regex::new (r"^\d+-\d+ \d+:\d+:\d+\.\d+ \d+ \d+ F DEBUG +: +#(\d+) pc (\w+) +/"));
+    let android = unwrap! (Regex::new (r"^\d+-\d+ \d+:\d+:\d+\.\d+ \d+ \d+ F DEBUG +: +#(\d+) pc (\w+) +/"));
 
     for line in log_file.lines() {
         let line = match line {Ok (l) => l, Err (err) => {
             eprintln! ("Error getting a log line: {}", err); continue}};
-        let caps = match re.captures (&line) {Some (c) => c, None => continue};
-        println!();
-        println! ("{}", line);
-        let num = unwrap! (caps.get (1)) .as_str();
-        let addr = unwrap! (caps.get (2)) .as_str();
-        println! ("num {} addr {}", num, addr);
-
-        let mut cmd = Command::new (&addr2line);
-        cmd.arg (format! ("--exe={}", opt.exe));
-        cmd.arg ("--functions");
-        cmd.arg ("--demangle");
-        cmd.arg (addr);
-        cmd.stdout (Stdio::inherit());
-        cmd.stderr (Stdio::inherit());
-        let status = unwrap! (cmd.status());
-        if !status.success() {println! ("{:?}", status)}
+        if let Some (caps) = android.captures (&line) {
+            android_ (&opt, &line, caps)
+        }
     }
 }
