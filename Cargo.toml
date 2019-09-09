@@ -1,6 +1,6 @@
 [package]
 name = "log-to-addr2line-rs"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Artemciy <artemciy@gmail.com>"]
 edition = "2018"
 description = "Picks stack trace addresses from a log and runs addr2line on them"
@@ -8,6 +8,8 @@ description = "Picks stack trace addresses from a log and runs addr2line on them
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+gstuff = "0.6"
+lazy_static = "1.4"
 regex = "1.3"
 structopt = "0.3"
 unwrap = "1.2"
