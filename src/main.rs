@@ -1,26 +1,30 @@
 #[macro_use] extern crate unwrap;
 
 use regex::Regex;
-use std::env::args;
 use std::fs;
 use std::io::{self, BufRead};
 use std::process::{Command, Stdio};
+use structopt::StructOpt;
+
+#[derive(StructOpt, Debug)]
+#[structopt(name = "log-to-addr2line-rs")]
+struct Opt {
+    /// Executable.
+    #[structopt(short, long)]
+    exe: String,
+    /// Log file.
+    #[structopt(short, long)]
+    log: String,
+    /// How to run `addr2line`.
+    #[structopt(long)]
+    addr2line: Option<String>
+}
 
 fn main() {
-    let mut exe = None;
-    let mut log = None;
-    let mut addr2line = String::from ("addr2line");
+    let opt = Opt::from_args();
+    let addr2line = opt.addr2line.unwrap_or ("addr2line".into());
 
-    for arg in args() {
-        if arg.starts_with ("--exe=") {exe = Some (String::from (&arg[6..]))}
-        if arg.starts_with ("--log=") {log = Some (String::from (&arg[6..]))}
-        if arg.starts_with ("--addr2line=") {addr2line = String::from (&arg[12..])}
-    }
-
-    let exe = match exe {Some (v) => v, None => panic! ("Please use --exe=$path to specify the executable")};
-    let log = match log {Some (v) => v, None => panic! ("Please use --log=$path to specify the log")};
-
-    let log_file = unwrap! (fs::File::open (&log), "Can't open the log {:?}", log);
+    let log_file = unwrap! (fs::File::open (&opt.log), "Can't open the log {:?}", opt.log);
     let log_file = io::BufReader::new (log_file);
 
     // Currently only Android stack traces. Might support other formats in the future.
@@ -38,7 +42,7 @@ fn main() {
         println! ("num {} addr {}", num, addr);
 
         let mut cmd = Command::new (&addr2line);
-        cmd.arg (format! ("--exe={}", exe));
+        cmd.arg (format! ("--exe={}", opt.exe));
         cmd.arg ("--functions");
         cmd.arg ("--demangle");
         cmd.arg (addr);
