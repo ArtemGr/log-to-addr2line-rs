@@ -1,10 +1,10 @@
-//#[macro_use] extern crate lazy_static;
+#[macro_use] extern crate lazy_static;
 #[macro_use] extern crate unwrap;
 
 use gstuff::binprint;
 use regex::{Captures, Regex};
 use std::fs;
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Read, Write};
 use std::process::{Command, Stdio};
 use structopt::StructOpt;
 
@@ -73,31 +73,37 @@ fn ips_ (opt: &Opt, line: &str, caps: Captures) {
 
     let stdout = unwrap! (String::from_utf8 (output.stdout), "!utf-8");
     let stdout = stdout.trim();
-    println! ("{}", stdout);
 
-    /*
-    lazy_static! {
-        static ref RS: Regex = unwrap! (Regex::new (r" \(\w+\.rs:\d+\)$"));
-    }
-    if !RS.is_match (stdout) {
-        println! ("{}", stdout);
-        return
-    }
+    // core::ptr::real_drop_in_place::he308621a82284088 (in Runner) (mod.rs:175)
+    lazy_static! {static ref RS_HASH: Regex = unwrap! (Regex::new (
+        r"(?x) ^(.*?[\w\$]) :: h[0-9a-f]{16} \s\(in\s[\w\.]+\) \s\([\w\.:<>\s]+\)$"));}
+    let rs_hash = RS_HASH.captures (stdout);
+    let rs_hash = match rs_hash {
+        Some (caps) => caps,
+        None => {
+            println! ("{}", stdout);
+            return
+        }
+    };
+    let symbol = unwrap! (rs_hash.get (1)) .as_str();
+    println! ("{}", symbol);
 
-    let raw_symbol = stdout;
-    let rustfilt = opt.rustfilt.as_ref().map (|s| &s[..]) .unwrap_or ("rustfilt");
-    let mut cmd = Command::new (rustfilt);
-    cmd.stdin (Stdio::piped());
-    cmd.stdout (Stdio::piped());
-    let mut rustfilt = unwrap! (cmd.spawn(), "!rustfilt");
-    let mut stdin = unwrap! (rustfilt.stdin.take().ok_or ("!stdin"));
-    let mut stdout = unwrap! (rustfilt.stdout.take().ok_or ("!stdin"));
-    unwrap! (stdin.write_all (raw_symbol.as_bytes()));
-    drop (stdin);
-    assert! (unwrap! (rustfilt.wait()) .success());
-    let mut buf = String::new();
-    unwrap! (stdout.read_to_string (&mut buf));
-    println! ("filtered: {}", buf);*/
+    if 1==0 {  // rustfilt doesn't grok the iOS output so far
+        let raw_symbol = stdout;
+        let rustfilt = opt.rustfilt.as_ref().map (|s| &s[..]) .unwrap_or ("rustfilt");
+        let mut cmd = Command::new (rustfilt);
+        cmd.stdin (Stdio::piped());
+        cmd.stdout (Stdio::piped());
+        let mut rustfilt = unwrap! (cmd.spawn(), "!rustfilt");
+        let mut stdin = unwrap! (rustfilt.stdin.take().ok_or ("!stdin"));
+        let mut stdout = unwrap! (rustfilt.stdout.take().ok_or ("!stdin"));
+        unwrap! (stdin.write_all (raw_symbol.as_bytes()));
+        drop (stdin);
+        assert! (unwrap! (rustfilt.wait()) .success());
+        let mut buf = String::new();
+        unwrap! (stdout.read_to_string (&mut buf));
+        println! ("filtered: {}", buf);
+    }
 }
 
 fn main() {
@@ -122,6 +128,8 @@ fn main() {
             android_ (&opt, &line, caps)
         } else if let Some (caps) = ips.captures (&line) {
             ips_ (&opt, &line, caps)
+        } else if line.starts_with ("Thread ") {
+            println! ("{}", line);
         }
     }
 }

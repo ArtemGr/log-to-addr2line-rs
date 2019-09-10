@@ -1,5 +1,6 @@
 # Crash logs
 /*.ips
+/Runner
 
 # Private IDE configuration
 /.vscode/tasks.json
