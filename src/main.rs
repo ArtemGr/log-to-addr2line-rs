@@ -54,6 +54,26 @@ fn ips_ (opt: &Opt, line: &str, caps: Captures) {
     println!();
     println! ("{}", line);
 
+    // finding dSYM: https://stackoverflow.com/a/36092643/257568
+    // `dwarfdump --uuid $binary` (https://stackoverflow.com/a/9990995/257568)
+    // cf. https://developer.apple.com/library/archive/technotes/tn2151/_index.html#//apple_ref/doc/uid/DTS40008184-CH1-SYMBOLICATIONTROUBLESHOOTING
+    // 
+    // There should be a way to verify that a given dSYM matches the given crash log.
+    // I didn't yet had a chance to check it, but based on the docs above it seems that:
+    // 
+    // The first "Binary Images" line, such as
+    // 
+    //     0x10273c000 - 0x103673fff Runner arm64  <bf91fb5f03df338a918e3bda951b0577> /var/containers/Bundle/Application/C9A45E31-4A31-49D3-97D9-B085ED0D44C0/Runner.app/Runner
+    // 
+    // should match the UUID of the `dwarfdump --uuid` of the dSYM.
+    // Alternatively,
+    // 
+    //     mdfind "com_apple_xcode_dsym_uuids == BF91FB5F-03DF-338A-918E-3BDA951B0577"
+    // 
+    // can be used to find the right dSYM.
+
+    // Not sure whether non-Runner addresses can be symbolicated with the Runner dSYM.
+
     let mut cmd = Command::new ("atos");
     cmd.arg ("-arch") .arg ("arm64");
     cmd.arg ("-o") .arg (&opt.exe);
